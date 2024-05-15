@@ -1,0 +1,83 @@
+#Web服务的格式化配置
+services:
+  redis:
+    image: "redis:6.0.20"
+    container_name: "redis"
+    restart: "always"
+    volumes:
+      - /data/redis:/data #redis数据保存的目录映射，与配置文件中的dir关联
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf #配置文件
+    ports:
+      - 6379:6379
+    #启动时添加命令：加载指定的配置文件--privileged=true
+    command: redis-server /usr/local/etc/redis/redis.conf
+  
+  mysql57:
+    image: "mysql:5.7"
+    container_name: "mysql57"
+    restart: "always"
+    volumes:
+      - /data/mysql57:/var/lib/mysql
+      - ./mysql57/config/my.cnf:/etc/my.cnf:ro
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      
+  php74:
+    build:
+      context: "./php74" #dockerfile文件的目录
+      dockerfile: "Dockerfile" #指定dockerfile文件名称
+    container_name: "php74"
+    restart: "always"
+    volumes:
+      - /wwwroot:/wwwroot
+      - ./php74/php.ini/:/usr/local/etc/php.ini
+    depends_on:
+      - redis
+    
+  php73:
+    build:
+      context: "./php73" #dockerfile文件的目录
+      dockerfile: "Dockerfile" #指定dockerfile文件名称
+    container_name: "php73"
+    restart: "always"
+    volumes:
+      - /wwwroot:/wwwroot
+      - ./php73/php.ini/:/usr/local/etc/php.ini
+    depends_on:
+      - redis
+  
+  php56:
+    build:
+      context: "./php56"
+      dockerfile: "Dockerfile"
+    container_name: "php56"
+    restart: "always"
+    volumes:
+      - /wwwroot:/wwwroot
+      - ./php56/php.ini/:/usr/local/etc/php.ini
+    depends_on:
+      - redis
+    extra_hosts:
+      - "mktservice-test.ppwfund.com:120.76.197.75"
+  
+  nginx:
+    image: "nginx:latest"
+    container_name: "nginx"
+    restart: "always"
+    volumes:
+      - /wwwroot:/wwwroot:ro
+      - ./nginx/vhosts:/etc/nginx/conf.d
+    links:
+      - php74:php74
+      - php73:php73
+      - php56:php56
+    ports:
+      - 80:80
+    #php容器需要在nginx和mysql之后启动
+    #Nginx 依赖关系： 通常情况下，Nginx 服务应该在 PHP 服务之后启动，因为 Nginx 会将 PHP 请求转发到 PHP-FPM 进程池中。所以，Nginx 服务应该依赖于 PHP 服务。
+    depends_on:
+      - php74
+      - php73
+      - php56
